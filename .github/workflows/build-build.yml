@@ -1,4 +1,4 @@
-name: Build IPA
+name: Zwinge Neuen Build Ohne Flags
 on: [workflow_dispatch]
 
 jobs:
@@ -10,29 +10,23 @@ jobs:
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
 
-      # Baut das Projekt auf die simpelste Art und Weise, die Xcode kennt
-      - name: Build Project
+      # Wir erstellen ein sauberes, separates Bash-Skript, um jeglichen GitHub-Cache zu umgehen
+      - name: Build Project Custom
         run: |
-          xcodebuild -project LocalDevVPN.xcodeproj \
-                     -scheme LocalDevVPN \
-                     -configuration Release \
-                     -sdk iphoneos \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO \
-                     clean build
+          echo "Bauen startet..."
+          xcodebuild archive \
+            -project LocalDevVPN.xcodeproj \
+            -scheme LocalDevVPN \
+            -archivePath ./build/LocalDevVPN.xcarchive \
+            -sdk iphoneos \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
 
-      # Erstellt die IPA, indem es die App im Standard-Ausgabeordner sucht
+      # Wir holen uns die App direkt aus dem frisch erstellten Archiv-Ordner
       - name: Package IPA
         run: |
           mkdir -p Payload
-          # Sucht im gesamten Runner-Verzeichnis nach der fertigen .app
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "LocalDevVPN.app" -type d | head -n 1)
-          
-          if [ -z "$APP_PATH" ]; then
-            echo "Error: LocalDevVPN.app wurde nirgends gefunden!" && exit 1
-          fi
-          
-          cp -r "$APP_PATH" Payload/
+          cp -r ./build/LocalDevVPN.xcarchive/Products/Applications/LocalDevVPN.app Payload/
           zip -r LocalDevVPN.ipa Payload
 
       - name: Upload Artifact
