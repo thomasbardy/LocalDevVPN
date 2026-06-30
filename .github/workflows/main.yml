@@ -1,0 +1,40 @@
+name: Build IPA
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+        
+      # Navigates to the correct subdirectory and compiles the App target
+      - name: Build Project
+        run: |
+          cd LocalDevVPN
+          xcodebuild -scheme LocalDevVPN \
+                     -sdk iphoneos \
+                     -configuration Release \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO \
+                     clean build \
+                     -derivedDataPath build
+                     
+      # Finds the compiled .app file, creates the Payload structure, and zips it into an IPA
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          APP_PATH=$(find LocalDevVPN/build -name "LocalDevVPN.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: LocalDevVPN.app not found!" && exit 1
+          fi
+          cp -r "$APP_PATH" Payload/
+          zip -r LocalDevVPN.ipa Payload
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LocalDevVPN-Unsigned-IPA
+          path: LocalDevVPN.ipa
